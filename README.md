@@ -1,671 +1,244 @@
 # BaseSetup Spring Security JWT
 
-**BaseSetup** è una repository di base per progetti Java Spring Boot, pensata per essere riutilizzata come starter backend con autenticazione JWT, gestione utenti e ruoli, sicurezza avanzata e API documentate.
+**BaseSetup** è una repository di base per progetti Java Spring Boot, pensata per essere riutilizzata come starter backend robusto, scalabile e sicuro. Include autenticazione JWT, gestione utenti e ruoli, sicurezza avanzata, mapping automatico con MapStruct e documentazione API integrata.
 
 ## 📋 Indice
 
-- [Caratteristiche](#caratteristiche)
-- [Architettura JWT](#architettura-jwt)
-- [Come funziona il JWT](#come-funziona-il-jwt)
-- [UserDetailsImpl e Gestione Utenti](#userdetailsimpl-e-gestione-utenti)
-- [Sistema di Ruoli e Autorizzazioni](#sistema-di-ruoli-e-autorizzazioni)
-- [Flusso di Autenticazione Completo](#flusso-di-autenticazione-completo)
-- [Configurazione Security](#configurazione-security)
-- [Endpoints API](#endpoints-api)
-- [Quick Start](#quick-start)
-- [Configurazione](#configurazione)
-- [Estensioni](#estensioni)
+- [Prerequisiti e Tecnologie](#-prerequisiti-e-tecnologie)
+- [Struttura del Progetto](#-struttura-del-progetto)
+- [Caratteristiche Principali](#-caratteristiche-principali)
+- [Architettura di Sicurezza](#-architettura-di-sicurezza)
+- [Gestione Dati e Mapping](#-gestione-dati-e-mapping)
+- [Configurazione Dettagliata](#-configurazione-dettagliata)
+- [API Endpoints e Swagger](#-api-endpoints-e-swagger)
+- [Guida all'Avvio](#-guida-allavvio)
+- [Troubleshooting](#-troubleshooting)
 
-## 🚀 Caratteristiche
+---
 
-- **Spring Boot 3.5+** con Maven
-- **Autenticazione JWT stateless** completamente configurata
-- **Sistema di ruoli gerarchico** (USER, ADMIN, MODERATOR)
-- **Registrazione e login sicuri** con validazione
-- **Password cifrate con BCrypt**
-- **CORS configurato** per sviluppo e produzione
-- **Swagger/OpenAPI** per documentazione API
-- **Gestione errori strutturata** con risposte JSON
-- **Filtri JWT personalizzati** per sicurezza avanzata
+## 🛠 Prerequisiti e Tecnologie
 
-## 🔐 Architettura JWT
+Questo progetto utilizza tecnologie all'avanguardia per garantire performance e manutenibilità.
 
-### Componenti Principali
+### Requisiti di Sistema
+- **Java Development Kit (JDK) 21**: Assicurati di avere l'ultima versione di Java installata.
+- **Maven 3.8+**: Per la gestione delle dipendenze e il build.
+- **MySQL 8.0+**: Database relazionale per la persistenza dei dati.
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   AuthController │    │   AuthService   │
-│                 │───▶│                  │───▶│                 │
-│ (React/Angular) │    │ /api/auth/*      │    │ Business Logic  │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  JWT Token      │    │  SecurityConfig  │    │  UserRepository │
-│                 │◀───│                  │    │                 │
-│ Bearer eyJ0...  │    │ Filter Chain     │    │ Database Access │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-```
+### Stack Tecnologico
+| Tecnologia | Versione | Descrizione |
+|------------|----------|-------------|
+| **Spring Boot** | 3.5.4 | Framework principale |
+| **Spring Security** | 6.x | Gestione autenticazione e autorizzazione |
+| **Spring Data JPA** | - | ORM e accesso ai dati |
+| **JWT (JJWT)** | 0.12.2 | Token standard per autenticazione stateless |
+| **MapStruct** | 1.6.3 | Mapping performante tra Entity e DTO |
+| **Lombok** | Latest | Riduzione del codice boilerplate |
+| **SpringDoc OpenAPI** | 2.8.5 | Documentazione automatica Swagger UI |
+| **BCrypt** | - | Hashing sicuro delle password (via Spring Security) |
 
-### Flusso dei Filtri
+---
 
-```
-HTTP Request → CORS → AuthTokenFilter → SecurityFilterChain → Controller
-                ↓            ↓                    ↓
-        Allow Origins   Extract JWT      Check Permissions
-                       Validate Token    Set Authentication
-                       Set Context      Grant/Deny Access
-```
+## 📂 Struttura del Progetto
 
-## 🎯 Come funziona il JWT
+Il progetto segue una clean architecture per separare le responsabilità e facilitare la manutenzione.
 
-### 1. Generazione del Token
-
-```java
-// JwtUtils.generateJwtToken()
-{
-  "sub": "username",           // Subject (username)
-  "id": 123,                   // User ID
-  "email": "user@example.com", // Email
-  "firstName": "Mario",        // Nome
-  "lastName": "Rossi",         // Cognome
-  "authorities": [             // Ruoli e permessi
-    "ROLE_USER",
-    "ROLE_ADMIN"
-  ],
-  "iat": 1640995200,          // Issued at
-  "exp": 1641081600           // Expiration
-}
+```text
+src/main/java/com/giggi/basesetup
+├── 📁 controller       # Gestione delle richieste HTTP (REST API)
+│   ├── AuthController.java    # Login, Registrazione, Refresh Token
+│   └── UtenteController.java  # CRUD Utenti
+├── 📁 dto              # Data Transfer Objects (Input/Output API)
+│   ├── 📁 request      # DTO per richieste in ingresso (es. LoginRequest)
+│   └── 📁 response     # DTO per risposte al client (es. JwtResponse)
+├── 📁 entity           # Modelli di persistenza (JPA Entities)
+│   ├── Utente.java     # Tabella utenti
+│   ├── Role.java       # Tabella ruoli
+│   └── RoleName.java   # Enum dei ruoli disponibili
+├── 📁 mapper           # Interfacce MapStruct per conversione Entity <-> DTO
+├── 📁 repository       # Interfacce Spring Data JPA per accesso al DB
+├── 📁 security         # Configurazione Core della sicurezza
+│   ├── SecurityConfig.java    # Configurazione FilterChain e Beans
+│   ├── 📁 jwt                 # Logica JWT (Generazione, Validazione, Filtri)
+│   └── 📁 service             # Implementazione UserDetailsService
+├── 📁 service          # Business Logic
+│   ├── 📁 impl         # Implementazione dei servizi
+│   └── [Interfaces]    # Interfacce dei servizi
+└── 📁 swagger          # Configurazione OpenApi/Swagger
 ```
 
-### 2. Struttura del Token JWT
+---
 
-Un JWT è composto da 3 parti separate da punti:
+## 🚀 Caratteristiche Principali
 
-```
-eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VybmFtZSIsImlkIjoxMjN9.signature
-│                     │                                    │
-│                     │                                    └─ Signature (HMAC SHA256)
-│                     └─ Payload (Base64 encoded JSON)
-└─ Header (Base64 encoded)
-```
+- **Autenticazione Stateless**: Utilizzo di JSON Web Tokens (JWT) per scalabilità orizzontale.
+- **RBAC (Role-Based Access Control)**: Sistema gerarchico di permessi (USER, ADMIN, MODERATOR).
+- **Mapping Automatico**: Conversione pulita ed efficiente tra Entità e DTO grazie a MapStruct.
+- **Validazione Dati**: Controlli su input (es. email valida, password robusta) tramite Bean Validation.
+- **Sicurezza Avanzata**:
+    - Password Hashing con **BCrypt**.
+    - Protezione CORS configurabile.
+    - Gestione eccezioni di sicurezza centralizzata.
+- **Documentazione Live**: Interfaccia Swagger UI per testare le API direttamente dal browser.
+- **Actuator**: Endpoint per il monitoraggio dello stato dell'applicazione.
 
-### 3. Validazione e Estrazione
+---
 
-```java
-// Il filtro AuthTokenFilter intercetta ogni richiesta
-public class AuthTokenFilter extends OncePerRequestFilter {
-    
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, 
-                                   HttpServletResponse response,
-                                   FilterChain filterChain) {
-        
-        // 1. Estrai token dall'header Authorization
-        String jwt = parseJwt(request); // "Bearer eyJ0..." → "eyJ0..."
-        
-        // 2. Valida il token
-        if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-            
-            // 3. Estrai username e authorities
-            String username = jwtUtils.getUserNameFromJwtToken(jwt);
-            Collection<GrantedAuthority> authorities = 
-                jwtUtils.getAuthoritiesFromJwtToken(jwt);
-            
-            // 4. Crea oggetto Authentication
-            UsernamePasswordAuthenticationToken authentication = 
-                new UsernamePasswordAuthenticationToken(username, null, authorities);
-            
-            // 5. Imposta nel SecurityContext
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        }
-        
-        filterChain.doFilter(request, response);
-    }
-}
-```
+## 🔐 Architettura di Sicurezza
 
-### 4. Metodi Chiave di JwtUtils
+### Il Flusso di Autenticazione (JWT)
 
-| Metodo | Descrizione | Utilizzo |
-|--------|-------------|----------|
-| `generateJwtToken(Authentication)` | Genera JWT dal login | Dopo autenticazione riuscita |
-| `generateTokenFromUser(UserDetailsImpl)` | Genera JWT da utente | Per refresh token |
-| `validateJwtToken(String)` | Valida firma e scadenza | Ad ogni richiesta protetta |
-| `getUserNameFromJwtToken(String)` | Estrae username | Per identificare l'utente |
-| `getAuthoritiesFromJwtToken(String)` | Estrae ruoli | Per controllo autorizzazioni |
-| `isTokenExpired(String)` | Verifica scadenza | Per gestione refresh |
+1. **Login**: L'utente invia credenziali a `/api/auth/signin`.
+2. **Verifica**: `AuthenticationManager` valida username e password (confrontando l'hash BCrypt).
+3. **Generazione Token**: Se valido, viene generato un JWT firmato contenente:
+    - **Subject**: Username
+    - **Claims**: ID, Email, Ruoli
+    - **Scadenza**: Configurale (default 16 ore)
+    - **Firma**: HMAC-SHA256
+4. **Utilizzo**: Il client invia il token nell'header `Authorization: Bearer <token>` per ogni richiesta successiva.
+5. **Filtro**: `AuthTokenFilter` intercetta la richiesta, valida il token e imposta il contesto di sicurezza.
 
-## 👤 UserDetailsImpl e Gestione Utenti
+### Gestione dei Ruoli
 
-### UserDetailsImpl: Il Ponte tra Entity e Security
+I ruoli sono definiti nell'enum `RoleName` e persistiti nel database.
+- **ROLE_USER**: Accesso base.
+- **ROLE_MODERATOR**: Accesso a funzionalità di moderazione.
+- **ROLE_ADMIN**: Accesso completo, inclusa gestione utenti (CRUD).
 
-`UserDetailsImpl` implementa l'interfaccia `UserDetails` di Spring Security e fa da tramite tra la nostra entità `Utente` e il sistema di autenticazione.
+L'assegnazione avviene in fase di registrazione o tramite API di amministrazione.
 
-```java
-public class UserDetailsImpl implements UserDetails {
-    
-    private Long id;                    // ID unico dell'utente
-    private String username;            // Username per il login
-    private String email;               // Email (alternativa al username)
-    private String firstName;           // Nome
-    private String lastName;            // Cognome
-    private String password;            // Password cifrata (non esposta in JSON)
-    
-    // Flag di stato account Spring Security
-    private boolean enabled;            // Account attivo/disattivato
-    private boolean accountNonExpired;  // Account non scaduto
-    private boolean accountNonLocked;   // Account non bloccato
-    private boolean credentialsNonExpired; // Credenziali non scadute
-    
-    private Collection<? extends GrantedAuthority> authorities; // Ruoli e permessi
-}
-```
+---
 
-### Metodo Factory Build
+## 🔄 Gestione Dati e Mapping
 
-```java
-public static UserDetailsImpl build(Utente user) {
-    // Converte i ruoli dell'entità in GrantedAuthority
-    List<GrantedAuthority> authorities = user.getRoles().stream()
-            .map(role -> new SimpleGrantedAuthority(role.getName())) // "ROLE_USER"
-            .collect(Collectors.toList());
+Per mantenere pulito il codice, utilizziamo **MapStruct**. Questo evita di esporre le Entità JPA direttamente nelle API.
 
-    return new UserDetailsImpl(
-            user.getId(),
-            user.getUsername(),
-            user.getEmail(),
-            user.getFirstName(),
-            user.getLastName(),
-            user.getPassword(),
-            user.getEnabled(),           // true/false
-            user.getAccountNonExpired(), // true/false
-            user.getAccountNonLocked(),  // true/false
-            user.getCredentialsNonExpired(), // true/false
-            authorities                  // Lista di ruoli
-    );
-}
-```
+**Esempio di Flusso:**
+1. **Controller** riceve `UtenteCreateRequestDTO`.
+2. **Service** chiama `UtenteMapper` per convertirlo in `Utente` (Entity).
+3. **Repository** salva l'Entity nel DB.
+4. **Service** riceve l'Entity salvata e usa `UtenteMapper` per convertirla in `UtenteFindDTO`.
+5. **Controller** restituisce il DTO.
 
-### UserDetailsServiceImpl: Caricamento Utenti
+Questo approccio garantisce che password e dati sensibili non vengano mai esposti accidentalmente nelle risposte JSON.
 
-```java
-@Service
-public class UserDetailsServiceImpl implements UserDetailsService {
-    
-    @Override
-    public UserDetails loadUserByUsername(String usernameOrEmail) {
-        // 1. Cerca utente per username O email
-        Utente user = userRepository.findByUsernameOrEmail(usernameOrEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        
-        // 2. Verifica che l'account sia attivo
-        if (!user.getEnabled()) {
-            throw new UsernameNotFoundException("Account disabled");
-        }
-        
-        // 3. Converte Entity in UserDetails
-        return UserDetailsImpl.build(user);
-    }
-}
-```
+---
 
-## 🛡️ Sistema di Ruoli e Autorizzazioni
+## ⚙️ Configurazione Dettagliata
 
-### Gerarchia dei Ruoli
+Il file `src/main/resources/application.properties` è il cuore della configurazione.
 
-```
-ROLE_ADMIN
-    ├── Può fare tutto
-    ├── Gestire tutti gli utenti
-    ├── Creare/eliminare utenti
-    └── Accesso a tutti gli endpoint
-
-ROLE_MODERATOR
-    ├── Gestione contenuti
-    ├── Moderazione utenti
-    └── Endpoint specifici
-
-ROLE_USER
-    ├── Accesso base
-    ├── Gestione proprio profilo
-    └── Endpoint pubblici autenticati
-```
-
-### Configurazione Autorizzazioni in SecurityConfig
-
-```java
-.authorizeHttpRequests(auth -> auth
-    // 🟢 Endpoint PUBBLICI - Nessuna autenticazione
-    .requestMatchers("/api/auth/**")).permitAll()
-    .requestMatchers("/swagger-ui/**").permitAll()
-    .requestMatchers("/actuator/health").permitAll()
-    
-    // 🔵 Endpoint per UTENTI AUTENTICATI
-    .requestMatchers("/api/utentes/**").hasRole("USER")  // Solo ROLE_USER+
-    
-    // 🟡 Endpoint per ADMIN
-    .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
-    .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
-    .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
-    
-    // 🟠 Endpoint MISTI
-    .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()    // Tutti autenticati
-    .requestMatchers(HttpMethod.PUT, "/api/users/**").authenticated()    // Tutti autenticati
-    
-    // 🔴 Tutto il resto richiede autenticazione
-    .anyRequest().authenticated()
-)
-```
-
-### Assegnazione Ruoli in Registrazione
-
-```java
-// AuthServiceImpl.registerUser()
-Set<String> strRoles = signUpRequest.getRoles(); // ["admin", "user"]
-Set<Role> roles = new HashSet<>();
-
-if (strRoles == null || strRoles.isEmpty()) {
-    // 🔵 Ruolo DEFAULT
-    Role userRole = roleRepository.findByName("ROLE_USER")
-            .orElseThrow(() -> new RuntimeException("Role not found"));
-    roles.add(userRole);
-} else {
-    strRoles.forEach(role -> {
-        switch (role.toLowerCase()) {
-            case "admin":
-                // 🟡 Admin role
-                Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElseThrow();
-                roles.add(adminRole);
-                break;
-            case "mod":
-                // 🟠 Moderator role  
-                Role modRole = roleRepository.findByName("ROLE_MODERATOR").orElseThrow();
-                roles.add(modRole);
-                break;
-            default:
-                // 🔵 Default USER role
-                Role userRole = roleRepository.findByName("ROLE_USER").orElseThrow();
-                roles.add(userRole);
-        }
-    });
-}
-
-user.setRoles(roles); // Assegna i ruoli all'utente
-```
-
-## 🔄 Flusso di Autenticazione Completo
-
-### 1. 📝 Registrazione (`POST /api/auth/signup`)
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant AC as AuthController
-    participant AS as AuthService
-    participant UR as UserRepository
-    participant RR as RoleRepository
-    
-    C->>AC: POST /api/auth/signup
-    Note over C,AC: {username, email, password, roles}
-    
-    AC->>AS: registerUser(RegisterRequest)
-    
-    AS->>UR: existsByUsername() 
-    AS->>UR: existsByEmail()
-    Note over AS: Verifica unicità
-    
-    AS->>AS: passwordEncoder.encode()
-    Note over AS: Cifra password con BCrypt
-    
-    AS->>RR: findByName("ROLE_USER")
-    Note over AS: Assegna ruoli (default: USER)
-    
-    AS->>UR: save(user)
-    AS->>AC: MessageResponse.success()
-    AC->>C: 201 Created
-```
-
-### 2. 🔐 Login (`POST /api/auth/signin`)
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant AC as AuthController
-    participant AS as AuthService
-    participant AM as AuthenticationManager
-    participant UDS as UserDetailsService
-    participant JU as JwtUtils
-    
-    C->>AC: POST /api/auth/signin
-    Note over C,AC: {usernameOrEmail, password}
-    
-    AC->>AS: authenticateUser(LoginRequest)
-    
-    AS->>AM: authenticate(UsernamePasswordAuthenticationToken)
-    AM->>UDS: loadUserByUsername()
-    UDS->>UDS: UserDetailsImpl.build(user)
-    
-    Note over AM: Verifica password con BCrypt
-    
-    AM-->>AS: Authentication object
-    AS->>JU: generateJwtToken(Authentication)
-    
-    Note over JU: Crea JWT con user info + ruoli
-    
-    AS->>AC: JwtResponse (token + user info)
-    AC->>C: 200 OK + JWT Token
-```
-
-### 3. 🔒 Richiesta Protetta (`GET /api/users`)
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant ATF as AuthTokenFilter
-    participant JU as JwtUtils
-    participant SC as SecurityConfig
-    participant UC as UserController
-    
-    C->>ATF: GET /api/users
-    Note over C,ATF: Authorization: Bearer eyJ0...
-    
-    ATF->>JU: getJwtFromHeader()
-    ATF->>JU: validateJwtToken()
-    
-    alt Token valido
-        ATF->>JU: getUserNameFromJwtToken()
-        ATF->>JU: getAuthoritiesFromJwtToken()
-        ATF->>ATF: SecurityContextHolder.setAuthentication()
-        
-        ATF->>SC: Verifica autorizzazioni
-        Note over SC: hasRole("ADMIN") per GET /api/users
-        
-        alt Ha ruolo ADMIN
-            SC->>UC: Processa richiesta
-            UC->>C: 200 OK + dati utenti
-        else Non ha ruolo ADMIN  
-            SC->>C: 403 Forbidden
-        end
-        
-    else Token non valido
-        ATF->>C: 401 Unauthorized
-    end
-```
-
-## ⚙️ Configurazione Security
-
-### SecurityConfig - Punti Chiave
-
-```java
-@Configuration
-@EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)  // Abilita @PreAuthorize
-public class SecurityConfig {
-    
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
-        return http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable)  // Disabilita CSRF per API REST
-            .sessionManagement(session -> 
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // JWT = stateless
-            .exceptionHandling(exception ->
-                exception.authenticationEntryPoint(unauthorizedHandler)) // Gestione errori 401
-            .authorizeHttpRequests(auth -> auth
-                // Configurazione endpoint...
-            )
-            .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class)
-            .build();
-    }
-}
-```
-
-### CORS Configuration
-
-```java
-@Bean
-public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration configuration = new CorsConfiguration();
-    
-    // 🌐 Domini consentiti
-    configuration.setAllowedOrigins(Arrays.asList(
-        "http://localhost:3000",    // React dev
-        "http://localhost:4200",    // Angular dev  
-        "https://yourdomain.com"    // Produzione
-    ));
-    
-    // 📡 Metodi HTTP consentiti
-    configuration.setAllowedMethods(Arrays.asList(
-        "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
-    ));
-    
-    // 📋 Headers consentiti
-    configuration.setAllowedHeaders(List.of("*"));
-    
-    // 🍪 Consenti credenziali (cookies, auth headers)
-    configuration.setAllowCredentials(true);
-    
-    return source;
-}
-```
-
-## 📡 Endpoints API
-
-### Autenticazione
-
-| Endpoint | Metodo | Descrizione | Accesso | Request Body |
-|----------|--------|-------------|---------|--------------|
-| `/api/auth/signin` | POST | Login utente | 🟢 Pubblico | `LoginRequest` |
-| `/api/auth/signup` | POST | Registrazione | 🟢 Pubblico | `RegisterRequest` |
-
-### Gestione Utenti
-
-| Endpoint | Metodo | Descrizione | Accesso | Ruolo Richiesto |
-|----------|--------|-------------|---------|-----------------|
-| `/api/users` | GET | Lista utenti | 🟡 Protetto | `ROLE_ADMIN` |
-| `/api/users` | POST | Crea utente | 🟡 Protetto | `ROLE_ADMIN` |
-| `/api/users/{id}` | DELETE | Elimina utente | 🟡 Protetto | `ROLE_ADMIN` |
-| `/api/users/{id}` | GET | Dettaglio utente | 🔵 Protetto | Autenticato |
-| `/api/users/{id}` | PUT | Aggiorna utente | 🔵 Protetto | Autenticato |
-| `/api/utentes/**` | * | Endpoint utenti | 🔵 Protetto | `ROLE_USER` |
-
-### Pubblici
-
-| Endpoint | Metodo | Descrizione | Accesso |
-|----------|--------|-------------|---------|
-| `/swagger-ui.html` | GET | Documentazione API | 🟢 Pubblico |
-| `/actuator/health` | GET | Health check | 🟢 Pubblico |
-
-## 🚀 Quick Start
-
-### 1. Clone e Setup
-
-```bash
-git clone <repository-url>
-cd basesetup
-```
-
-### 2. Configurazione Database
-
+### Configurazione Server & DB
 ```properties
-# src/main/resources/application.properties
+spring.application.name=BaseSetup
+server.port=8080                    # Porta del server
+server.address=0.0.0.0              # Ascolto su tutte le interfacce
 
-# Database Configuration
-spring.datasource.url=jdbc:mysql://localhost:3306/basesetup_db
-spring.datasource.username=your_username
-spring.datasource.password=your_password
+# Connessione Database
+spring.datasource.url=jdbc:mysql://localhost:3306/YOUR_DATABASE_NAME
+spring.datasource.username=root
+spring.datasource.password=rootroot
 
-# JWT Configuration  
-spring.app.jwtSecret=mySecretKey
-spring.app.jwtExpirationMs=86400000
-
-# JPA Configuration
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
+# Configurazione JPA/Hibernate
+spring.jpa.show-sql=true            # Mostra le query SQL nei log (utile in dev)
+spring.jpa.hibernate.ddl-auto=update # Aggiorna lo schema DB automaticamente
 ```
 
-### 3. Inserimento Ruoli Iniziali
+### Sicurezza & JWT
+```properties
+# Chiave segreta per la firma dei token (deve essere lunga e complessa)
+spring.app.jwtSecret=mySecretKey123912738aopsgjnspkmndfsopkvajoirjg94gf2opfng2moknm
 
+# Durata del token in millisecondi (es. 57600000 ms = 16 ore)
+spring.app.jwtExpirationMs=57600000
+```
+
+### Upload File (Multipart)
+```properties
+# Limiti per l'upload di file
+spring.servlet.multipart.max-file-size=200MB
+spring.servlet.multipart.max-request-size=200MB
+```
+
+### Logging
+Il livello di log è configurato per facilitare il debug della sicurezza:
+```properties
+logging.level.org.springframework.security=DEBUG
+logging.level.io.jsonwebtoken=DEBUG
+```
+
+---
+
+## 📡 API Endpoints e Swagger
+
+Una volta avviata l'applicazione, la documentazione interattiva è disponibile a:
+👉 **[http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)**
+
+### Principali Endpoint
+
+| Metodo | Path | Descrizione | Autenticazione |
+|--------|------|-------------|----------------|
+| `POST` | `/api/auth/signup` | Registrazione nuovo utente | 🔓 Pubblico |
+| `POST` | `/api/auth/signin` | Login (restituisce JWT) | 🔓 Pubblico |
+| `GET`  | `/api/users` | Lista di tutti gli utenti | 🔒 Admin |
+| `GET`  | `/api/users/{id}` | Dettaglio singolo utente | 🔒 Autenticato |
+| `PUT`  | `/api/users/{id}` | Modifica utente | 🔒 Autenticato |
+| `DELETE`| `/api/users/{id}`| Eliminazione utente | 🔒 Admin |
+
+---
+
+## 🏃‍♂️ Guida all'Avvio
+
+Segui questi passaggi per avviare il progetto in locale.
+
+### 1. Clona la Repository
+```bash
+git clone <url-repository>
+cd BaseSetup
+```
+
+### 2. Configura il Database
+Crea un database MySQL vuoto (es. `basesetup_db`) e aggiorna `application.properties` con le tue credenziali.
+
+### 3. Build & Run
+Puoi avviare l'applicazione usando il wrapper Maven incluso:
+
+**Linux/Mac:**
+```bash
+./mvnw spring-boot:run
+```
+
+**Windows:**
+```bash
+mvnw.cmd spring-boot:run
+```
+
+### 4. Popolazione Iniziale (Opzionale)
+Al primo avvio, Hibernate creerà le tabelle. Potrebbe essere necessario inserire manualmente i ruoli se non previsti da uno script di migrazione (es. Flyway) o da un `CommandLineRunner`:
 ```sql
--- Inserisci i ruoli di base
-INSERT INTO roles (name) VALUES ('ROLE_USER');
-INSERT INTO roles (name) VALUES ('ROLE_ADMIN'); 
-INSERT INTO roles (name) VALUES ('ROLE_MODERATOR');
-```
-
-### 4. Avvio Applicazione
-
-```bash
-mvn spring-boot:run
-```
-
-### 5. Test con curl
-
-```bash
-# Registrazione
-curl -X POST http://localhost:8080/api/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "email": "test@example.com", 
-    "password": "password123",
-    "firstName": "Test",
-    "lastName": "User",
-    "roles": ["user"]
-  }'
-
-# Login
-curl -X POST http://localhost:8080/api/auth/signin \
-  -H "Content-Type: application/json" \
-  -d '{
-    "usernameOrEmail": "testuser",
-    "password": "password123"
-  }'
-
-# Richiesta protetta (sostituisci YOUR_JWT_TOKEN)
-curl -X GET http://localhost:8080/api/users/1 \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
-
-## 🔧 Configurazione
-
-### Variabili Environment (Produzione)
-
-```bash
-# JWT Secret (generato casualmente)
-SPRING_APP_JWT_SECRET=your-256-bit-secret-key-here
-
-# Database
-SPRING_DATASOURCE_URL=jdbc:mysql://db-host:3306/prod_db
-SPRING_DATASOURCE_USERNAME=prod_user
-SPRING_DATASOURCE_PASSWORD=secure_password
-
-# CORS Origins  
-CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
-```
-
-### Personalizzazione Security
-
-```java
-// Per aggiungere nuovi endpoint protetti
-.requestMatchers("/api/custom/**").hasRole("CUSTOM_ROLE")
-
-// Per endpoint che richiedono ruoli multipli
-.requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-
-// Per endpoint con logica custom
-.requestMatchers("/api/profile/**").access("@authService.canAccessProfile(authentication, #id)")
-```
-
-## 🔧 Estensioni
-
-### 1. Refresh Token
-
-```java
-// Aggiungi in AuthController
-@PostMapping("/refresh")
-public ResponseEntity<JwtResponse> refreshToken(@RequestParam String username) {
-    JwtResponse response = authService.refreshToken(username);
-    return ResponseEntity.ok(response);
-}
-```
-
-### 2. Password Reset
-
-```java
-// Nuovo endpoint per reset password
-@PostMapping("/forgot-password")
-public ResponseEntity<MessageResponse> forgotPassword(@RequestParam String email) {
-    // Implementa logica di invio email
-    return ResponseEntity.ok(MessageResponse.success("Reset email sent"));
-}
-```
-
-### 3. Ruoli Personalizzati
-
-```java
-// Aggiungi nuovi ruoli in RoleName enum
-public enum RoleName {
-    ROLE_USER,
-    ROLE_ADMIN, 
-    ROLE_MODERATOR,
-    ROLE_PREMIUM_USER,    // Nuovo ruolo
-    ROLE_CONTENT_CREATOR  // Nuovo ruolo
-}
-```
-
-### 4. Audit Logging
-
-```java
-// Aggiungi listener per tracciare operazioni
-@EventListener
-public void handleAuthentication(AuthenticationSuccessEvent event) {
-    log.info("User {} logged in successfully", event.getAuthentication().getName());
-}
+INSERT INTO roles (name, description) VALUES ('ROLE_USER', 'Standard User');
+INSERT INTO roles (name, description) VALUES ('ROLE_ADMIN', 'Administrator');
+INSERT INTO roles (name, description) VALUES ('ROLE_MODERATOR', 'Moderator');
 ```
 
 ---
 
-## 📚 Dipendenze Principali
+## ❓ Troubleshooting
 
-```xml
-<dependencies>
-    <!-- Spring Boot Starters -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-security</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.boot</groupId>  
-        <artifactId>spring-boot-starter-data-jpa</artifactId>
-    </dependency>
-    
-    <!-- JWT -->
-    <dependency>
-        <groupId>io.jsonwebtoken</groupId>
-        <artifactId>jjwt-api</artifactId>
-        <version>0.11.5</version>
-    </dependency>
-    
-    <!-- Database -->
-    <dependency>
-        <groupId>mysql</groupId>
-        <artifactId>mysql-connector-java</artifactId>
-    </dependency>
-    
-    <!-- Utilities -->
-    <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-    </dependency>
-</dependencies>
-```
+**Problema: "Java version mismatch"**
+Assicurati di avere installato Java 21 e che la variabile `JAVA_HOME` punti alla versione corretta. Se usi una versione precedente, aggiorna il tag `<java.version>` nel `pom.xml`.
+
+**Problema: "Access Denied" (403 Forbidden)**
+- Hai incluso il token nell'header? `Authorization: Bearer <tuo_token>`
+- Il token è scaduto? Controlla il campo `exp` del JWT (puoi decodificarlo su [jwt.io](https://jwt.io)).
+- Hai il ruolo corretto? Alcuni endpoint richiedono `ROLE_ADMIN`.
+
+**Problema: Connessione Database fallita**
+- Verifica che il servizio MySQL sia attivo.
+- Controlla username, password e URL nel file `application.properties`.
+- Verifica che il database specificato nell'URL esista.
 
 ---
 
-**🎉 Il tuo backend Spring Security con JWT è pronto! Sicuro, scalabile e facilmente estendibile per qualsiasi progetto.**
+**Happy Coding!** 🚀
+*Per domande o contributi, apri una Issue o una Pull Request.*
