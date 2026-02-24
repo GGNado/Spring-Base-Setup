@@ -88,4 +88,36 @@ public class AuthController {
                     .body(MessageResponse.error("Error registering user: " + e.getMessage()));
         }
     }
+
+    @PostMapping("/validate")
+    @Operation(summary = "Validate user token", description = "Validate JWT token and return user details")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Token is valid",
+                    content = @Content(schema = @Schema(implementation = JwtResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid token",
+                    content = @Content(schema = @Schema(implementation = MessageResponse.class)))
+    })
+
+    public ResponseEntity<?> validateToken(@RequestHeader("Authorization") String token) {
+        // Remove "Bearer " prefix if present
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+        log.info("Validazione del token: {}", token);
+        try {
+            boolean isValid = authService.validateToken(token);
+            if (isValid) {
+                log.info("Token valido");
+                return ResponseEntity.ok(MessageResponse.success("Token valido"));
+            } else {
+                log.warn("Token non valido");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(MessageResponse.error("Token non valido"));
+            }
+        } catch (Exception e) {
+            log.error("Errore durante la validazione del token - Errore: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(MessageResponse.error("Token non valido"));
+        }
+    }
 }

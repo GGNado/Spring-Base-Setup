@@ -185,4 +185,7 @@ public class AuthServiceImpl {
     }
 
 
+    public boolean validateToken(String token) {
+        return jwtUtils.validateJwtToken(token);
+    }
 }

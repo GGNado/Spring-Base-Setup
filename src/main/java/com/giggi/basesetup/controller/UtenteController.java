@@ -13,7 +13,7 @@ import com.giggi.basesetup.entity.Utente;
 import com.giggi.basesetup.service.UtenteService;
 
 @RestController
-@RequestMapping("/api/utentes")
+@RequestMapping("/api/utenti")
 @RequiredArgsConstructor
 public class UtenteController {
     private final UtenteService utenteService;
